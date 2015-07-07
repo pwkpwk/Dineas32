@@ -31,7 +31,20 @@ static VOID WINAPI DnsQueryCompletion( _In_ PVOID pQueryContext, _Inout_ PDNS_QU
 		::DnsRecordListFree(pQueryResults->pQueryRecords, DnsFreeRecordList);
 		break;
 
+	case DNS_ERROR_RCODE_NAME_ERROR:
+		puts("DNS name does not exist.");
+		break;
+
+	case DNS_INFO_NO_RECORDS:
+		puts("No records.");
+		break;
+
+	case ERROR_INVALID_PARAMETER:
+		puts("Invalid parameter.");
+		break;
+
 	default:
+		printf("Error %d\n", pQueryResults->QueryStatus);
 		break;
 	}
 
@@ -43,7 +56,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	DNS_QUERY_REQUEST request = { 0 };
 
 	request.Version = DNS_QUERY_REQUEST_VERSION1;
-	request.QueryName = L"_msradc.microsoft.com";
+	request.QueryName = L"microsoft.com";
 	request.QueryType = DNS_TYPE_TEXT;
 	request.QueryOptions = DNS_QUERY_STANDARD;
 	request.pDnsServerList = nullptr;
@@ -58,51 +71,37 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		request.pQueryContext = completed;
 
-		IP_ADAPTER_ADDRESSES *pAddresses = nullptr;
-		ULONG bufLength = 0;
-		DWORD rc;
+		DNS_STATUS status = ::DnsQueryEx(&request, &result, &cancel);
 
-		do
+		switch (status)
 		{
-			rc = ::GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &bufLength);
+		case ERROR_SUCCESS:
+			::PrintResult(&result);
+			break;
 
-			if (ERROR_BUFFER_OVERFLOW == rc)
+		case DNS_REQUEST_PENDING:
+			if (WAIT_OBJECT_0 != ::WaitForSingleObject(completed, 5000))
 			{
-				if (pAddresses)
-					::LocalFree(pAddresses);
-				pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(::LocalAlloc(LPTR, bufLength));
+				if (ERROR_SUCCESS == ::DnsCancelQuery(&cancel))
+					::WaitForSingleObject(completed, INFINITE);
 			}
-		} while (ERROR_BUFFER_OVERFLOW == rc);
+			break;
 
-		if (ERROR_SUCCESS == rc)
-		{
-			DNS_STATUS status = ::DnsQueryEx(&request, &result, &cancel);
+		case DNS_ERROR_RCODE_NAME_ERROR:
+			puts("DNS name does not exist.");
+			break;
 
-			switch (status)
-			{
-			case ERROR_SUCCESS:
-				::PrintResult(&result);
-				break;
+		case DNS_INFO_NO_RECORDS:
+			puts("No records.");
+			break;
 
-			case DNS_REQUEST_PENDING:
-				if (WAIT_OBJECT_0 != ::WaitForSingleObject(completed, 5000))
-				{
-					if (ERROR_SUCCESS == ::DnsCancelQuery(&cancel))
-						::WaitForSingleObject(completed, INFINITE);
-				}
-				break;
+		case ERROR_INVALID_PARAMETER:
+			puts("Invalid parameter.");
+			break;
 
-			case DNS_INFO_NO_RECORDS:
-				break;
-
-			case ERROR_INVALID_PARAMETER:
-				break;
-
-			default:
-				break;
-			}
-
-			::LocalFree(pAddresses);
+		default:
+			printf("Error %d\n", status);
+			break;
 		}
 
 		::CloseHandle(completed);
