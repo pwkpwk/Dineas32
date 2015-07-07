@@ -59,8 +59,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	request.QueryName = L"_msradc.microsoft.com";
 	request.QueryType = DNS_TYPE_TEXT;
 	request.QueryOptions = DNS_QUERY_STANDARD;
-	request.pDnsServerList = nullptr;
-	request.InterfaceIndex = 0;
 	request.pQueryCompletionCallback = DnsQueryCompletion;
 
 	result.Version = DNS_QUERY_REQUEST_VERSION1;
@@ -77,9 +75,13 @@ int _tmain(int argc, _TCHAR* argv[])
 		{
 		case ERROR_SUCCESS:
 			::PrintResult(&result);
+			::DnsRecordListFree(result.pQueryRecords, DnsFreeRecordList);
 			break;
 
 		case DNS_REQUEST_PENDING:
+			//
+			// Wait for 5 seconds and cancel the query
+			//
 			if (WAIT_OBJECT_0 != ::WaitForSingleObject(completed, 5000))
 			{
 				if (ERROR_SUCCESS == ::DnsCancelQuery(&cancel))
