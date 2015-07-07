@@ -56,7 +56,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	DNS_QUERY_REQUEST request = { 0 };
 
 	request.Version = DNS_QUERY_REQUEST_VERSION1;
-	request.QueryName = L"microsoft.com";
+	request.QueryName = L"_msradc.microsoft.com";
 	request.QueryType = DNS_TYPE_TEXT;
 	request.QueryOptions = DNS_QUERY_STANDARD;
 	request.pDnsServerList = nullptr;
